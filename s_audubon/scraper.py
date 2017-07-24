@@ -1,2 +1,0 @@
-def scrape():
-    print('hullo')
