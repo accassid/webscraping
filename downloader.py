@@ -2,6 +2,7 @@ from PIL import Image
 import io
 import requests
 import os
+import multiprocessing as mp
 
 def download(dname, fname, url):
     size = (1024,1024)
@@ -29,18 +30,25 @@ def download(dname, fname, url):
         return False
     return True
 
+def helper(i,num_lines,line):
+    print(i,'/',num_lines)
+    split_line = line.split(',')
+    dname = 'output/images/'+split_line[1].strip().replace(' ','_')
+    fname = split_line[2]+str(i)
+    url = split_line[3].strip()
+    if not os.path.exists(dname):
+        os.makedirs(dname)
+    return download(dname,fname,url)
+
 def read_file():
-    num_lines = sum(1 for line in open('myfile.txt'))
+    num_lines = sum(1 for line in open('links.csv'))
     link_file = open('links.csv','r')
-    for i, line in enumerate(link_file):
-        print(i,'/',num_lines)
-        split_line = line.split(',')
-        dname = 'output/images/'+split_line[1].strip().replace(' ','_')
-        fname = split_line[2]+str(i)
-        url = split_line[3].strip()
-        if not os.path.exists(dname):
-            os.makedirs(dname)
-        download(dname,fname,url)
+    cpu_count = mp.cpu_count()
+    pool = mp.Pool(processes=cpu_count)
+    results = [pool.apply_async(helper,args=(i,num_lines,line,)) for i, line in enumerate(link_file)]
+    output = [p.get() for p in results]
+
+
 
 
 read_file()
