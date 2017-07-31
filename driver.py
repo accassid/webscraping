@@ -6,7 +6,7 @@ import multiprocessing as mp
 
 #meant to collect image links from various sources given a list of scientific names
 
-def add_images(links, scraper,plant, site):
+def add_images(links, scraper, plant, site):
     names = plant.strip().split(',')
     try:
         print('Scraping',site,'for',plant)
@@ -15,7 +15,7 @@ def add_images(links, scraper,plant, site):
         else:
             links.append((plant, site, scraper(names[1])))
     except:
-        print('ERROR WITH',site,'and plant,',plant)
+        print('ERROR WITH ',site,' and plant, ',plant)
 
 def scrapers(name):
     link_list = []
@@ -25,15 +25,15 @@ def scrapers(name):
     add_images(link_list, scraper_google.scrape, name, 'google')
     return link_list
 
-cpu_count = mp.cpu_count()
 final_list = []
 name_file = open('names.csv', 'r')
-pool = mp.Pool(processes=cpu_count)
+pool = mp.Pool(1000)
 results = [pool.apply_async(scrapers,args=(name,)) for name in name_file]
 for p in results:
     final_list.extend(p.get())
 
 name_file.close()
+
 link_file = open('links.csv', 'w')
 for plant, site, links in final_list:
     for link in links:

@@ -34,22 +34,16 @@ def helper(i,num_lines,line):
     print(i,'/',num_lines)
     split_line = line.split(',')
     dname = 'output/images/'+split_line[1].strip().replace(' ','_')
-    fname = split_line[2]+str(i)
+    fname = str(uuid.uuid4()) + ".jpg"
     url = split_line[3].strip()
     if not os.path.exists(dname):
         os.makedirs(dname)
     return download(dname,fname,url)
 
-def read_file():
-    num_lines = sum(1 for line in open('links.csv'))
-    link_file = open('links.csv','r')
-    cpu_count = mp.cpu_count()
-    pool = mp.Pool(processes=cpu_count)
-    results = [pool.apply_async(helper,args=(i,num_lines,line,)) for i, line in enumerate(link_file)]
-    output = [p.get() for p in results]
 
+num_lines = sum(1 for line in open('links.csv')) # is this a waste?
+link_file = open('links.csv','r')
+pool = mp.Pool(100)
+results = [pool.apply(helper, args=(i,num_lines,line,)) for i, line in enumerate(link_file)]
+# blocks.
 
-
-
-read_file()
-# download('output/images/Asclepias_tuberosa', 'usda', 'https://plants.usda.gov/gallery/pubs/rual_003_pvp.jpg')
