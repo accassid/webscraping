@@ -45,22 +45,29 @@ def get_training_images(num=10):
 	global images
 	global labels
 	start = so_far
-	end = so_far + num
+	end = start + num
 	so_far = end
+
+	if end > len(images): #wrap around
+		start = 0
+		end = start + num
+		so_far = end
+
 	image_subset = images[start:end]
 	image_bytes = numpy.zeros((num, 3*1024*1024))
 
 	i = 0
 	for image in image_subset:
-		im = Image.open(image)
-		image_bytes[i] = numpy.asarray(im).flatten() / 127.5 - 1 # feature scaling
+		im_jpg = Image.open(image)
+		im_array = numpy.asarray(im_jpg).flatten()
+		while im_array.shape[0] < 10: # fails to load sometimes
+			im_array = numpy.asarray(im_array[0]).flatten()
+		image_bytes[i] = im_array / 255.0  # feature scaling
 		i = i+1
 
 	return (image_bytes, labels[start:end])
 
 
-
-time.sleep(5)
 
 sess = tf.InteractiveSession()
 
