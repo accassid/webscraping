@@ -8,7 +8,9 @@ def scrape(name):
     display = Display(visible=0, size=(800, 600))
     display.start()
     image_urls = set()
-    driver = webdriver.Chrome()
+    caps = webdriver.DesiredCapabilities().FIREFOX
+    caps["marionette"] = False
+    driver = webdriver.Firefox(capabilities=caps)
     driver.get('https://plants.usda.gov/java/')
     search_box = driver.find_element_by_id('searchtext')
     search_button = driver.find_element_by_id('submit')
