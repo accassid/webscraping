@@ -26,9 +26,7 @@ def scraper_helper(query, images_to_download=1000):
     display.start()
     image_urls = set()
     search_url = "https://www.google.com/search?safe=off&site=&tbm=isch&source=hp&q={q}&oq={q}&gs_l=img"
-    caps = webdriver.DesiredCapabilities().FIREFOX
-    caps["marionette"] = False
-    browser = webdriver.Firefox(capabilities=caps)
+    browser = webdriver.Chrome()
     browser.get(search_url.format(q=query))
     def scroll_to_bottom():
         browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")

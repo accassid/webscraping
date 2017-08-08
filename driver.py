@@ -3,6 +3,7 @@ import scraper_wildflower
 import scraper_usda
 import scraper_google
 import concurrent.futures as cf
+import os
 
 #meant to collect image links from various sources given a list of scientific names
 
@@ -28,7 +29,8 @@ def scrapers(name):
 
 final_list = []
 name_file = open('names.csv', 'r')
-executor = cf.ThreadPoolExecutor(max_workers=400)
+link_file = open('links.csv', 'w')
+executor = cf.ThreadPoolExecutor(max_workers=10)
 futures = []
 
 for name in name_file:
@@ -39,12 +41,13 @@ i = 0
 total = len(futures)
 
 for future in cf.as_completed(futures):
-    print("Completed ", i, " out of ", total)
     i += 1
-    final_list.extend(future.result())
+    result = future.result()
+    for plant, site, links in result:
+        for link in links:
+            link_file.write(plant.strip()+','+site+','+link+'\n')
+    print("Completed ", i, " out of ", total)
+    link_file.flush()
+    os.fsync(link_file.fileno())
 
-link_file = open('links.csv', 'w')
-for plant, site, links in final_list:
-    for link in links:
-        link_file.write(plant.strip()+','+site+','+link+'\n')
 link_file.close()
