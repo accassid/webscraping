@@ -4,7 +4,7 @@ import requests
 import os
 import uuid
 import time
-import multiprocessing as mp
+import concurrent.futures as cf
 
 def download(dname, fname, url):
     size = (1024,1024)
@@ -49,29 +49,31 @@ def helper(arglist):
         url = split_line[3].strip()
         if not os.path.exists(dname):
             os.makedirs(dname, exist_ok=True)
-        download(dname,fname,url)
+        try:
+            download(dname,fname,url)
+        except:
+            print("Exception, didn't download")
     return True
 
 
 num_lines = sum(1 for line in open('links.csv')) # is this the best way to do this?
 link_file = open('links.csv','r')
-pool = mp.Pool(1000)
+executor = cf.ThreadPoolExecutor(max_workers=1000)
 arglist = []
 for i, line in enumerate(link_file):
     arglist.append((i, num_lines, line))
 num_images = len(arglist)
-num_proc = 1000
-im_per_proc = int(num_images / num_proc)
-procs = []
-for k in range(num_proc):
-    start = k*im_per_proc
-    end = (k+1)*im_per_proc
-    proc = mp.Process(target=helper, args=(arglist[start:end],))
-    proc.start()
-    procs.append(proc)
+num_thread = 1000
+im_per_thread = int(num_images / num_thread)
+futures = []
+for k in range(num_thread):
+    start = k*im_per_thread
+    end = (k+1)*im_per_thread
+    future = executor.submit(helper, arglist[start:end])
+    futures.append(future)
 
-for proc in procs:
-    proc.join()
+for future in cf.as_completed(futures):
+    print("Thread finished.")
 
 print("Done.")
 
