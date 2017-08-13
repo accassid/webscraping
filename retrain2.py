@@ -814,12 +814,14 @@ def add_evaluation_step(result_tensor, ground_truth_tensor):
   with tf.name_scope('accuracy'):
     with tf.name_scope('correct_prediction'):
       prediction = tf.argmax(result_tensor, 1)
+      prediction5 = tf.nn.top_k(result_tensor, 5).indices
+      prediction10 = tf.nn.top_k(result_tensor, 10).indices
       correct_prediction = tf.equal(
           prediction, tf.argmax(ground_truth_tensor, 1))
     with tf.name_scope('accuracy'):
       evaluation_step = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
   tf.summary.scalar('accuracy', evaluation_step)
-  return evaluation_step, prediction
+  return evaluation_step, prediction, prediction5, prediction10
 
 
 def save_graph_to_file(sess, graph, graph_file_name):
@@ -1031,7 +1033,7 @@ def main(_):
          model_info['bottleneck_tensor_size'])
 
     # Create the operations we need to evaluate the accuracy of our new layer.
-    evaluation_step, prediction = add_evaluation_step(
+    evaluation_step, prediction, prediction5, prediction10 = add_evaluation_step(
         final_tensor, ground_truth_input)
 
     # Merge all the summaries and write them out to the summaries_dir
@@ -1118,13 +1120,28 @@ def main(_):
             FLAGS.bottleneck_dir, FLAGS.image_dir, jpeg_data_tensor,
             decoded_image_tensor, resized_image_tensor, bottleneck_tensor,
             FLAGS.architecture))
-    test_accuracy, predictions = sess.run(
-        [evaluation_step, prediction],
+    test_accuracy, predictions, predictions5, predictions10 = sess.run(
+        [evaluation_step, prediction, prediction5, prediction10],
         feed_dict={bottleneck_input: test_bottlenecks,
                    ground_truth_input: test_ground_truth})
     tf.logging.info('Final test accuracy = %.1f%% (N=%d)' %
                     (test_accuracy * 100, len(test_bottlenecks)))
+    top_5_mistakes = 0
+    top_10_mistakes = 0
+    for i, test_ground_truth_i in enumerate(test_ground_truth):
+      if test_ground_truth_i.argmax() not in predictions5[i]:
+        top_5_mistakes += 1
+      if test_ground_truth_i.argmax() not in predictions10[i]:
+        top_10_mistakes += 1
 
+    top_5_accuracy = (len(test_filenames) - top_5_mistakes) / len(test_filenames)
+    top_10_accuracy = (len(test_filenames) - top_10_mistakes) / len(test_filenames)
+
+    print("Top-5 test accuracy: ", top_5_accuracy)
+    print("Top-10 test accuracy: ", top_10_accuracy)
+
+    
+    
     if FLAGS.print_misclassified_test_images:
       tf.logging.info('=== MISCLASSIFIED TEST IMAGES ===')
       for i, test_filename in enumerate(test_filenames):
