@@ -102,7 +102,6 @@ import random
 import re
 import sys
 import tarfile
-import concurrent.futures as cf
 
 import numpy as np
 from six.moves import urllib
@@ -294,7 +293,7 @@ def run_bottleneck_on_image(sess, image_data, image_data_tensor,
     sess: Current active TensorFlow Session.
     image_data: String of raw JPEG data.
     image_data_tensor: Input data layer in the graph.
-    decoded_image_tensor: Output of initial image resizing and  preprocessing.
+    decoded_image_tensor: Output of initial image resizing and preprocessing.
     resized_input_tensor: The input node of the recognition graph.
     bottleneck_tensor: Layer before the final softmax.
 
@@ -348,7 +347,7 @@ def ensure_dir_exists(dir_name):
     dir_name: Path string to the folder we want to create.
   """
   if not os.path.exists(dir_name):
-    os.makedirs(dir_name, exist_ok=True)
+    os.makedirs(dir_name)
 
 
 bottleneck_path_2_bottleneck_values = {}
@@ -370,15 +369,17 @@ def create_bottleneck_file(bottleneck_path, image_lists, label_name, index,
         sess, image_data, jpeg_data_tensor, decoded_image_tensor,
         resized_input_tensor, bottleneck_tensor)
   except Exception as e:
-    raise RuntimeError('Error during processing file %s (%s)' % (image_path, str(e)))
+    raise RuntimeError('Error during processing file %s (%s)' % (image_path,
+                                                                 str(e)))
   bottleneck_string = ','.join(str(x) for x in bottleneck_values)
   with open(bottleneck_path, 'w') as bottleneck_file:
     bottleneck_file.write(bottleneck_string)
 
 
-def get_or_create_bottleneck(sess, image_lists, label_name, index, image_dir, category, bottleneck_dir, jpeg_data_tensor,
-  decoded_image_tensor, resized_input_tensor, bottleneck_tensor, architecture):
-
+def get_or_create_bottleneck(sess, image_lists, label_name, index, image_dir,
+                             category, bottleneck_dir, jpeg_data_tensor,
+                             decoded_image_tensor, resized_input_tensor,
+                             bottleneck_tensor, architecture):
   """Retrieves or calculates bottleneck values for an image.
 
   If a cached version of the bottleneck data exists on-disk, return that,
@@ -390,9 +391,9 @@ def get_or_create_bottleneck(sess, image_lists, label_name, index, image_dir, ca
     label_name: Label string we want to get an image for.
     index: Integer offset of the image we want. This will be modulo-ed by the
     available number of images for the label, so it can be arbitrarily large.
-    image_dir: Root folder string  of the subfolders containing the training
+    image_dir: Root folder string of the subfolders containing the training
     images.
-    category: Name string of which  set to pull images from - training, testing,
+    category: Name string of which set to pull images from - training, testing,
     or validation.
     bottleneck_dir: Folder string holding cached files of bottleneck values.
     jpeg_data_tensor: The tensor to feed loaded jpeg data into.
@@ -465,21 +466,19 @@ def cache_bottlenecks(sess, image_lists, image_dir, bottleneck_dir,
   """
   how_many_bottlenecks = 0
   ensure_dir_exists(bottleneck_dir)
-  executor = cf.ThreadPoolExecutor(max_workers=1)
-  futures = []
   for label_name, label_lists in image_lists.items():
     for category in ['training', 'testing', 'validation']:
       category_list = label_lists[category]
       for index, unused_base_name in enumerate(category_list):
-        future = executor.submit(get_or_create_bottleneck, sess, image_lists, label_name, index, image_dir, category, bottleneck_dir, jpeg_data_tensor, decoded_image_tensor, resized_input_tensor, bottleneck_tensor, architecture)
-        futures.append(future)
+        get_or_create_bottleneck(
+            sess, image_lists, label_name, index, image_dir, category,
+            bottleneck_dir, jpeg_data_tensor, decoded_image_tensor,
+            resized_input_tensor, bottleneck_tensor, architecture)
 
-  for future in cf.as_completed(futures):
-    if future.exception() is not None:
-      print("Some exception in the thread: " + str(future.exception()))
-    how_many_bottlenecks += 1
-    if how_many_bottlenecks % 1000 == 0:
-      tf.logging.info(str(how_many_bottlenecks) + ' bottleneck files created.')
+        how_many_bottlenecks += 1
+        if how_many_bottlenecks % 100 == 0:
+          tf.logging.info(
+              str(how_many_bottlenecks) + ' bottleneck files created.')
 
 
 def get_random_cached_bottlenecks(sess, image_lists, how_many, category,
@@ -524,7 +523,8 @@ def get_random_cached_bottlenecks(sess, image_lists, how_many, category,
       image_index = random.randrange(MAX_NUM_IMAGES_PER_CLASS + 1)
       image_name = get_image_path(image_lists, label_name, image_index,
                                   image_dir, category)
-      bottleneck = get_or_create_bottleneck(sess, image_lists, label_name, image_index, image_dir, category,
+      bottleneck = get_or_create_bottleneck(
+          sess, image_lists, label_name, image_index, image_dir, category,
           bottleneck_dir, jpeg_data_tensor, decoded_image_tensor,
           resized_input_tensor, bottleneck_tensor, architecture)
       ground_truth = np.zeros(class_count, dtype=np.float32)
@@ -539,7 +539,8 @@ def get_random_cached_bottlenecks(sess, image_lists, how_many, category,
           image_lists[label_name][category]):
         image_name = get_image_path(image_lists, label_name, image_index,
                                     image_dir, category)
-        bottleneck = get_or_create_bottleneck(sess, image_lists, label_name, image_index, image_dir, category,
+        bottleneck = get_or_create_bottleneck(
+            sess, image_lists, label_name, image_index, image_dir, category,
             bottleneck_dir, jpeg_data_tensor, decoded_image_tensor,
             resized_input_tensor, bottleneck_tensor, architecture)
         ground_truth = np.zeros(class_count, dtype=np.float32)
@@ -813,14 +814,12 @@ def add_evaluation_step(result_tensor, ground_truth_tensor):
   with tf.name_scope('accuracy'):
     with tf.name_scope('correct_prediction'):
       prediction = tf.argmax(result_tensor, 1)
-      prediction5 = tf.nn.top_k(result_tensor, 5).indices
-      prediction10 = tf.nn.top_k(result_tensor, 10).indices
       correct_prediction = tf.equal(
           prediction, tf.argmax(ground_truth_tensor, 1))
     with tf.name_scope('accuracy'):
       evaluation_step = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
   tf.summary.scalar('accuracy', evaluation_step)
-  return evaluation_step, prediction, prediction5, prediction10
+  return evaluation_step, prediction
 
 
 def save_graph_to_file(sess, graph, graph_file_name):
@@ -970,7 +969,7 @@ def main(_):
   # See https://github.com/tensorflow/tensorflow/issues/3047
   tf.logging.set_verbosity(tf.logging.INFO)
 
-  # Prepare necessary directories  that can be used during training
+  # Prepare necessary directories that can be used during training
   prepare_file_system()
 
   # Gather information about the model architecture we'll be using.
@@ -1032,7 +1031,7 @@ def main(_):
          model_info['bottleneck_tensor_size'])
 
     # Create the operations we need to evaluate the accuracy of our new layer.
-    evaluation_step, prediction, prediction5, prediction10 = add_evaluation_step(
+    evaluation_step, prediction = add_evaluation_step(
         final_tensor, ground_truth_input)
 
     # Merge all the summaries and write them out to the summaries_dir
@@ -1119,26 +1118,12 @@ def main(_):
             FLAGS.bottleneck_dir, FLAGS.image_dir, jpeg_data_tensor,
             decoded_image_tensor, resized_image_tensor, bottleneck_tensor,
             FLAGS.architecture))
-    test_accuracy, predictions, predictions5, predictions10 = sess.run(
-        [evaluation_step, prediction, prediction5, prediction10],
+    test_accuracy, predictions = sess.run(
+        [evaluation_step, prediction],
         feed_dict={bottleneck_input: test_bottlenecks,
                    ground_truth_input: test_ground_truth})
     tf.logging.info('Final test accuracy = %.1f%% (N=%d)' %
                     (test_accuracy * 100, len(test_bottlenecks)))
-
-    top_5_mistakes = 0
-    top_10_mistakes = 0
-    for i, test_ground_truth_i in enumerate(test_ground_truth):
-      if test_ground_truth_i.argmax() not in predictions5[i]:
-        top_5_mistakes += 1
-      if test_ground_truth_i.argmax() not in predictions10[i]:
-        top_10_mistakes += 1
-
-    top_5_accuracy = (len(test_filenames) - top_5_mistakes) / len(test_filenames)
-    top_10_accuracy = (len(test_filenames) - top_10_mistakes) / len(test_filenames)
-
-    print("Top-5 test accuracy: ", top_5_accuracy)
-    print("Top-10 test accuracy: ", top_10_accuracy)
 
     if FLAGS.print_misclassified_test_images:
       tf.logging.info('=== MISCLASSIFIED TEST IMAGES ===')
