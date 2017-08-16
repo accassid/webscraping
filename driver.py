@@ -16,12 +16,12 @@ def add_images(links, scraper, plant, site):
         else:
             links.append((plant, site, scraper(names[1])))
     except Exception as e:
-        print("ERROR WITH ", site, " and plant, ", plant)
-        print("Here's the error: ", e)
+        print("Error with:", site, "and plant:", plant)
+        print("Here's the error:", e)
 
 def scrapers(name):
     link_list = []
-    # add_images(link_list, scraper_garden.scrape, name, 'garden')
+    add_images(link_list, scraper_garden.scrape, name, 'garden')
     add_images(link_list, scraper_wildflower.scrape, name, 'wildflower')
     add_images(link_list, scraper_usda.scrape, name, 'usda')
     add_images(link_list, scraper_google.scrape, name, 'google')
@@ -30,7 +30,7 @@ def scrapers(name):
 final_list = []
 name_file = open('names.csv', 'r')
 link_file = open('links.csv', 'w')
-executor = cf.ThreadPoolExecutor(max_workers=10)
+executor = cf.ThreadPoolExecutor(max_workers=20)
 futures = []
 
 for name in name_file:

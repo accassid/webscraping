@@ -44,7 +44,7 @@ def helper(arglist):
         (i, num_lines, line) = args
         print(i,'/',num_lines)
         split_line = line.split(',')
-        dname = 'output/images/'+split_line[1].strip().replace(' ','_')
+        dname = "/mnt/external/images/"+split_line[1].strip().replace(' ','_')
         fname = str(uuid.uuid4())
         url = split_line[3].strip()
         if not os.path.exists(dname):
@@ -65,6 +65,7 @@ for i, line in enumerate(link_file):
 num_images = len(arglist)
 num_thread = 1000
 im_per_thread = int(num_images / num_thread)
+print("This many images per thread:", im_per_thread)
 futures = []
 for k in range(num_thread):
     start = k*im_per_thread
