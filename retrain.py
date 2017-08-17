@@ -465,7 +465,7 @@ def cache_bottlenecks(sess, image_lists, image_dir, bottleneck_dir,
   """
   how_many_bottlenecks = 0
   ensure_dir_exists(bottleneck_dir)
-  executor = cf.ThreadPoolExecutor(max_workers=1)
+  executor = cf.ThreadPoolExecutor(max_workers=500)
   futures = []
   for label_name, label_lists in image_lists.items():
     for category in ['training', 'testing', 'validation']:
