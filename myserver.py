@@ -1,4 +1,8 @@
+import numpy
+import os
+import json
 import tensorflow as tf
+from PIL import Image
 from flask import Flask, request, jsonify, abort
 app = Flask(__name__)
 
@@ -12,8 +16,8 @@ def load_graph(filename):
 		graph_def.ParseFromString(f.read())
 		tf.import_graph_def(graph_def, name='')
 
-labels = [line.rstrip() for line in tf.gfile.GFile("my_labels.pb")]
-load_graph("my_graph.pb")
+labels = [line.rstrip() for line in tf.gfile.GFile("/home/ubuntu/leafai/algo/my_labels.pb")]
+load_graph("/home/ubuntu/leafai/algo/my_graph.pb")
 
 def run_graph(image_data, num_top_predictions):
 	global input_layer_name
@@ -32,10 +36,10 @@ def run_graph(image_data, num_top_predictions):
 		results = []
 		for node_id in top_k:
 			human_string = labels[node_id]
-			score = predictions[node_id]
-			score_print = '%s (score = %.5f)' % (human_string, score)
-			results.append((human_string, score, score_print))
+			score = str(predictions[node_id])
+			results.append((human_string, score))
 		return results
+
 
 
 @app.route("/")
@@ -43,12 +47,16 @@ def hello():
 	return "Hello world!"
 
 
-@app.route("/get_prediction")
+@app.route("/get_prediction", methods=["GET", "POST"])
 def get_prediction():
 	if "image" not in request.files:
 		abort(400, "Couldn't find an image file.")
-	results = run_graph(request.files["image"], 5)
-	return jsonify(results)
+	imagefile = request.files["image"]
+	f = os.path.join("/home/ubuntu/leafai", imagefile.filename)
+	imagefile.save(f)
+	imagedata = tf.gfile.FastGFile(f, 'rb').read()
+	results = run_graph(imagedata, 5)
+	return json.dumps(results)
 
 if __name__ == '__main__':
 	app.run(host='0.0.0.0')
