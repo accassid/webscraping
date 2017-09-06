@@ -5,7 +5,7 @@ from selenium import webdriver
 
 #Edit these parameters:
 
-zipcode = '14051'
+zipcode = '14075'
 
 #scraper
 
@@ -19,7 +19,7 @@ driver.get(url)
 time.sleep(1)
 # page1 = requests.get(url)
 soup = BeautifulSoup(driver.page_source, 'html.parser')
-last_page = int(soup.find_all('a', attrs={"data-ng-bind": "resultsC.storage.pager.pager_items.last.page"})[0].get_text())
+last_page = 35 #int(soup.find_all('a', attrs={"data-ng-bind": "resultsC.storage.pager.pager_items.last.page"})[0].get_text())
 print(last_page)
 driver.close()
 names = []

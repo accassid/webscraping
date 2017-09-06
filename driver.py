@@ -2,7 +2,8 @@ import scraper_garden
 import scraper_wildflower
 import scraper_usda
 import scraper_google
-import multiprocessing as mp
+import concurrent.futures as cf
+import os
 
 #meant to collect image links from various sources given a list of scientific names
 
@@ -14,8 +15,9 @@ def add_images(links, scraper, plant, site):
             links.append((plant, site, scraper(names[0],names[1])))
         else:
             links.append((plant, site, scraper(names[1])))
-    except:
-        print('ERROR WITH ',site,' and plant, ',plant)
+    except Exception as e:
+        print("Error with:", site, "and plant:", plant)
+        print("Here's the error:", e)
 
 def scrapers(name):
     link_list = []
@@ -27,15 +29,25 @@ def scrapers(name):
 
 final_list = []
 name_file = open('names.csv', 'r')
-pool = mp.Pool(1000)
-results = [pool.apply_async(scrapers,args=(name,)) for name in name_file]
-for p in results:
-    final_list.extend(p.get())
-
-name_file.close()
-
 link_file = open('links.csv', 'w')
-for plant, site, links in final_list:
-    for link in links:
-        link_file.write(plant.strip()+','+site+','+link+'\n')
+executor = cf.ThreadPoolExecutor(max_workers=20)
+futures = []
+
+for name in name_file:
+    future = executor.submit(scrapers, name)
+    futures.append(future)
+
+i = 0
+total = len(futures)
+
+for future in cf.as_completed(futures):
+    i += 1
+    result = future.result()
+    for plant, site, links in result:
+        for link in links:
+            link_file.write(plant.strip()+','+site+','+link+'\n')
+    print("Completed ", i, " out of ", total)
+    link_file.flush()
+    os.fsync(link_file.fileno())
+
 link_file.close()

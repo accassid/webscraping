@@ -10,7 +10,6 @@ import json
 from PIL import Image
 from multiprocessing import Pool
 from selenium import webdriver
-from pyvirtualdisplay import Display
 
 
 def scrape(common_name, scientific_name):
@@ -22,13 +21,11 @@ def scrape(common_name, scientific_name):
     return link_set
 
 def scraper_helper(query, images_to_download=100):
-    display = Display(visible=0, size=(800, 600))
-    display.start()
     image_urls = set()
     search_url = "https://www.google.com/search?safe=off&site=&tbm=isch&source=hp&q={q}&oq={q}&gs_l=img"
     caps = webdriver.DesiredCapabilities().FIREFOX
-    caps["marionette"] = False
-    browser = webdriver.Chrome()
+    caps["marionette"] = True
+    browser = webdriver.Firefox(capabilities=caps)
     browser.get(search_url.format(q=query))
     def scroll_to_bottom():
         browser.execute_script("window.scrollTo(0, document.body.scrollHeight);")
@@ -58,5 +55,4 @@ def scraper_helper(query, images_to_download=100):
             scroll_to_bottom()
 
     browser.quit()
-    display.stop()
     return image_urls

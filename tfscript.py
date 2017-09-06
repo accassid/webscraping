@@ -4,29 +4,51 @@ import os
 import time
 import random
 import numpy
+import scandir
 import tensorflow as tf
+import concurrent.futures as cf
 from PIL import Image
 
-specieslist = os.listdir("output/images")
+def subdirs(path):
+	"""Yield directory or file names not starting with '.' under given path."""
+	ret = []
+	for entry in scandir.scandir(path):
+		if not entry.name.startswith('.'):
+			ret.append(entry.name)
+	return ret
+
+
+specieslist = subdirs("output/images")
 num_class = len(specieslist)
+
+def get_images(species):
+	ret = []
+	imagelist = subdirs("output/images/" + species)
+	for image_file in imagelist:
+		ret.append("output/images/" + species + "/" + image_file)
+	return ret
 
 def list_all_training_images():
 	images = []
 	labels = numpy.zeros((1, num_class))
 
-	i = 0
+	executor = cf.ThreadPoolExecutor(max_workers=100)
+	futures = []
 	for species in specieslist:
-		imagelist = os.listdir("output/images/" + species)
-		for image_file in imagelist:
-			images.append("output/images/" + species + "/" + image_file)
-			
-			# append label
+		future = executor.submit(get_images, species)
+		futures.append(future)
+
+	i = 0
+	for future in cf.as_completed(futures):
+		print("Got a list, number :", i)
+		result = future.result() # list of image file names
+		for image_file in result:
+			images.append(image_file)
 			label = numpy.zeros((1, num_class))
 			label[0][i] = 1
 			labels = numpy.append(labels, label, axis=0)
 
-		i = i+1
-	
+		i += 1
 	#delete first row of labels, since it's junk
 	labels = numpy.delete(labels, 0, axis=0)
 	return (images, labels)
@@ -37,6 +59,9 @@ zipped = list(zip(images, labels))
 random.shuffle(zipped)
 images[:], labels[:] = zip(*zipped)
 
+print(images[20])
+print(labels[0][20])
+
 print("Shuffled the training data. Number of classes: " + str(num_class) + ", number of images: " + str(len(images)))
 
 so_far = 0 # number of images returned so far
@@ -45,22 +70,29 @@ def get_training_images(num=10):
 	global images
 	global labels
 	start = so_far
-	end = so_far + num
+	end = start + num
 	so_far = end
+
+	if end > len(images): #wrap around
+		start = 0
+		end = start + num
+		so_far = end
+
 	image_subset = images[start:end]
 	image_bytes = numpy.zeros((num, 3*1024*1024))
 
 	i = 0
 	for image in image_subset:
-		im = Image.open(image)
-		image_bytes[i] = numpy.asarray(im).flatten() / 127.5 - 1 # feature scaling
+		im_jpg = Image.open(image)
+		im_array = numpy.asarray(im_jpg).flatten()
+		while im_array.shape[0] < 10: # fails to load sometimes
+			im_array = numpy.asarray(im_array[0]).flatten()
+		image_bytes[i] = im_array / 255.0  # feature scaling
 		i = i+1
 
 	return (image_bytes, labels[start:end])
 
 
-
-time.sleep(5)
 
 sess = tf.InteractiveSession()
 
@@ -183,13 +215,16 @@ cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_
 train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+saver = tf.train.saver()
 sess.run(tf.global_variables_initializer())
-for i in range(2000):
+for i in range(200000):
 	batch = get_training_images(10)
 	if i%10 == 0:
 		train_accuracy = accuracy.eval(feed_dict={x:batch[0], y_: batch[1], keep_prob: 1.0})
 		print("step %d, training accuracy %g"%(i, train_accuracy))
 	train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+
+saver.save(sess, "from-scratch-model")
 
 # (all_images, all_labels) = get_training_images(10)
 # print("test accuracy %g"%accuracy.eval(feed_dict={x: all_images, y_: all_labels, keep_prob: 1.0}))
